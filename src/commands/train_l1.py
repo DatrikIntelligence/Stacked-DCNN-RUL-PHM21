@@ -31,7 +31,8 @@ FEATURES = ['alt', 'Mach', 'TRA', 'T2', 'T24', 'T30', 'T48', 'T50', 'P15', 'P2',
 
            
 def train(seed, W, batch_size, epochs, hyper_params, cache_dir, net_summary=True): 
-    
+        logging.info("Starting training for fold with seed %d" % seed)
+        
         # crate the model
         model = create_cnn_model((20,W,1), **hyper_params)
         if net_summary:
@@ -114,10 +115,15 @@ if __name__ == "__main__":
     args = parser.parse_args()
     cache_dir = prepare_l1_data()
     
-    for seed in [999, 666, 128, 256, 394]:    
-        queue = multiprocessing.Queue()
-        p = multiprocessing.Process(target=train, args=(seed, W, BATCH_SIZE, EPOCHS, CNN_HYPER_PARAMS, 
-                                                        cache_dir, seed==999))
-        p.start()
-        p.join()
+    for seed in [999, 666, 128, 256, 394]:  
+        model_path = os.path.join(cache_dir, 'cnn_l1_%d.h5' % seed)
+        
+        if not os.path.exists(model_path):
+            queue = multiprocessing.Queue()
+            p = multiprocessing.Process(target=train, args=(seed, W, BATCH_SIZE, EPOCHS, CNN_HYPER_PARAMS, 
+                                                            cache_dir, seed==999))
+            p.start()
+            p.join()
+        else:
+            logging.info("Model for fold with seed %d found" % seed)
     
