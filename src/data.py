@@ -13,11 +13,17 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import pickle as pk
 import gc
 import logging
+from scoring import *
 
 logging.basicConfig(level=logging.INFO)
 
 # deactive panda warning
 pd.options.mode.chained_assignment = None
+
+
+FEATURES = ['alt', 'Mach', 'TRA', 'T2', 'T24', 'T30', 'T48', 'T50', 'P15', 'P2',
+           'P21', 'P24', 'Ps30', 'P40', 'P50', 'Nf', 'Nc', 'Wf', 'Fc', 'hs']
+
 
 class DataGenerator(Sequence):
     """
@@ -322,3 +328,89 @@ def prepare_l1_data():
             
     return cache_dir
     
+    
+def prepare_l2_data(seeds = [999, 666, 128, 256, 394]):
+    cache_dir = os.path.join(os.path.expanduser('~'), '.keras/datasets/data_set')
+    
+    W = 162
+    for seed in seeds:
+        if os.path.exists(os.path.join(cache_dir, "train_test_l2_%d.h5"  % seed)):
+            logging.info("Embeddings for fold with seed %d were already generated" % seed)
+            continue
+
+            
+        logging.info("Creating embeddings for fold with seed %d" % seed)
+        train_set_file_path = os.path.join(cache_dir, 'train_l1_%d.h5' % seed)
+        test_set_file_path = os.path.join(cache_dir, 'test_l1_%d.h5' % seed)
+
+        X_train = pd.read_hdf(train_set_file_path, key='phm21')
+        train_gen = DataGenerator(X_train, FEATURES)
+        del X_train
+        
+        X_test = pd.read_hdf(test_set_file_path, key='phm21')
+        test_gen = DataGenerator(X_test, FEATURES)
+        del X_test
+    
+        model = tf.keras.models.load_model(os.path.join(cache_dir, 'cnn_l1_%d.h5' % seed), 
+                                   custom_objects={'LeakyReLU': tf.keras.layers.LeakyReLU,
+                                                  'NASAScore': NASAScore,
+                                                  'PHM21Score': PHM21Score})
+        
+        # remove output (prediction) layer
+        nm = tf.keras.models.Model(inputs=model.inputs, outputs=model.layers[-2].output)
+
+        data = {}
+        for gen in [train_gen, test_gen]:
+
+            for key in gen._X.keys():
+
+                i = 0
+                d = gen._X[key]
+                vectors = np.zeros((d.shape[0]-W, 100), dtype=np.float16)
+                bag = []
+                logging.info("Processing unit with id %d" % key)
+
+                for c in range(0, d.shape[0]-W, 1):
+                    bag.append(d[c: c+W].T)
+
+
+                    if len(bag) == 512:
+                        v = nm.predict(np.array(bag)).astype(np.float16)
+                        vectors[i:i+512] = v
+                        i += 512
+                        bag = []
+
+                if len(bag) != 0:
+                    v = nm.predict(np.array(bag)).astype(np.float16)
+                    vectors[i:] = v
+
+                data[key] = vectors
+
+
+        h5f = h5py.File(os.path.join(cache_dir, "train_test_l2_%d.h5"  % seed))
+        h5f.create_dataset('train_ids', 
+                           data=np.array(list(train_gen._X.keys()), dtype=np.int16), 
+                           dtype=np.int16)
+
+        h5f.create_dataset('test_ids', 
+                           data=np.array(list(test_gen._X.keys()), dtype=np.int16), 
+                           dtype=np.int16)
+
+        for k, v in train_gen._Y.items():
+            h5f.create_dataset('y_%d' % k, data=v.astype(np.float16))
+
+        for k, v in test_gen._Y.items():
+            h5f.create_dataset('y_%d' % k, data=v.astype(np.float16))
+
+        for k, v in data.items():
+            h5f.create_dataset('x_%d' % k, data=v.astype(np.float16))
+
+
+        h5f.close()
+
+        del data
+        del vectors
+        del model
+        gc.collect()
+        
+    return cache_dir

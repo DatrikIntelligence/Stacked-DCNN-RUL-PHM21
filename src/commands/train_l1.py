@@ -18,18 +18,13 @@ import gc
 from scoring import *
 import pandas as pd
 import multiprocessing
-from data import DataGenerator, describe_features
+from data import DataGenerator, describe_features, FEATURES
 from utils import PlotL1RUL
 import logging
 
 logging.basicConfig(level=logging.INFO)
 
 
-
-FEATURES = ['alt', 'Mach', 'TRA', 'T2', 'T24', 'T30', 'T48', 'T50', 'P15', 'P2',
-           'P21', 'P24', 'Ps30', 'P40', 'P50', 'Nf', 'Nc', 'Wf', 'Fc', 'hs']
-
-           
 def train(seed, W, batch_size, epochs, hyper_params, cache_dir, net_summary=True): 
         logging.info("Starting training for fold with seed %d" % seed)
         
@@ -111,7 +106,7 @@ EPOCHS = 100
 
     
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Prepare data for L1 model training')
+    parser = argparse.ArgumentParser(description='Train L1 model')
     args = parser.parse_args()
     cache_dir = prepare_l1_data()
     
