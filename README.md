@@ -32,6 +32,19 @@ This is a example of the execution trace:
 
 ![L1_train](images/l1.gif)  
 
+### Level 2 training
+
+For training the level 2 models you only have to execute the script *train_l2.py* allocated in the directory 
+*src/commands*.You take into account that the during the first execution the encodings for the all cross-validation folds will be generated. This process will take long time (48 hours aprox.).
+
+```
+python train_l2.py
+```
+
+This is a example of the execution trace:
+
+![L1_train](images/train_l2.gif)  
+
 
 # ACKNOWLEDGMENT
 This work has been supported by Grant PID2019-109152GBI00/AEI/10.13039/501100011033 (Agencia Estatal de Investigacion), 
